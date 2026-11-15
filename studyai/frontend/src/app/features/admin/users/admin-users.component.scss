@@ -1,0 +1,212 @@
+.admin-users-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+
+  .page-title {
+    font-size: 1.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  .page-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    margin: 0;
+  }
+
+  .counter-badge {
+    background: var(--brand-gradient-subtle);
+    color: var(--primary-violet);
+    border: 1px solid rgba(124, 58, 237, 0.25);
+    font-size: 0.88rem;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 20px;
+  }
+}
+
+.table-card {
+  padding: 0;
+  overflow: hidden;
+  background-color: var(--bg-card);
+}
+
+.table-toolbar {
+  padding: 20px 24px 8px;
+
+  .search-field {
+    width: 100%;
+    max-width: 460px;
+  }
+}
+
+.skeleton-container {
+  padding: 24px;
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+.studyai-table {
+  width: 100%;
+
+  th {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  td {
+    padding: 14px 20px;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.92rem;
+  }
+
+  .th-avatar, .td-avatar {
+    width: 56px;
+    padding-right: 0;
+  }
+
+  .th-actions, .td-actions {
+    text-align: right;
+    white-space: nowrap;
+  }
+}
+
+.table-row {
+  transition: background-color 0.15s ease;
+
+  &:hover {
+    background-color: var(--sidebar-hover);
+  }
+}
+
+.user-avatar-cell {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-gradient);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+
+  .avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.td-name {
+  color: var(--text-primary);
+}
+
+.td-email {
+  color: var(--text-secondary);
+}
+
+.td-date {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* Statuts Chips */
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+  }
+
+  &.ACTIF {
+    background-color: var(--success-bg);
+    color: var(--success);
+
+    .status-dot {
+      background-color: var(--success);
+    }
+  }
+
+  &.EN_ATTENTE {
+    background-color: var(--warning-bg);
+    color: var(--warning);
+
+    .status-dot {
+      background-color: var(--warning);
+    }
+  }
+
+  &.DESACTIVE {
+    background-color: var(--danger-bg);
+    color: var(--danger);
+
+    .status-dot {
+      background-color: var(--danger);
+    }
+  }
+}
+
+/* Boutons Actions */
+.td-actions {
+  .action-btn {
+    margin-left: 4px;
+    transition: transform 0.15s ease;
+
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
+    &:hover {
+      transform: scale(1.1);
+    }
+  }
+
+  .edit-btn {
+    color: var(--primary-blue);
+  }
+
+  .toggle-btn {
+    &.btn-activate {
+      color: var(--success);
+    }
+
+    &.btn-deactivate {
+      color: var(--warning);
+    }
+  }
+
+  .delete-btn {
+    color: var(--danger);
+  }
+}

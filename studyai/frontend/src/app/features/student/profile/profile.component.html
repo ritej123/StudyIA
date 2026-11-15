@@ -1,0 +1,222 @@
+<div class="profile-container fade-in">
+  <div class="page-title-area">
+    <h1 class="page-title">Mon Profil</h1>
+    <p class="page-desc">Gérez vos coordonnées personnelles et la sécurité de votre compte StudyAI.</p>
+  </div>
+
+  <div class="profile-card card-studyai">
+    <mat-tab-group animationDuration="250ms" class="profile-tabs">
+      <!-- Onglet 1 : Informations personnelles -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon class="tab-icon">person</mat-icon>
+          <span>Informations personnelles</span>
+        </ng-template>
+
+        <div class="tab-body">
+          <!-- Zone Avatar & Téléversement -->
+          <div class="avatar-section">
+            <div class="avatar-preview-wrapper">
+              <img
+                *ngIf="previewPhotoUrl()"
+                [src]="previewPhotoUrl()"
+                alt="Photo de profil"
+                class="avatar-image">
+              <div *ngIf="!previewPhotoUrl()" class="avatar-placeholder">
+                {{ (authService.currentUser()?.firstName?.charAt(0) || 'U').toUpperCase() }}
+              </div>
+
+              <!-- Overlay bouton upload -->
+              <label class="avatar-upload-overlay" [class.uploading]="isUploadingPhoto()" title="Changer la photo">
+                <input
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp"
+                  (change)="onFileSelected($event)"
+                  [disabled]="isUploadingPhoto()"
+                  class="file-input-hidden">
+                <mat-icon *ngIf="!isUploadingPhoto()">photo_camera</mat-icon>
+                <mat-spinner *ngIf="isUploadingPhoto()" diameter="24" class="white-spinner"></mat-spinner>
+              </label>
+            </div>
+
+            <div class="avatar-hints">
+              <span class="avatar-title">Photo de profil</span>
+              <p class="avatar-desc">Formats supportés : JPG, PNG ou WebP. Taille maximale : 2 Mo.</p>
+            </div>
+          </div>
+
+          <!-- Message d'erreur profil -->
+          <div *ngIf="profileError()" class="alert-box alert-error fade-in">
+            <mat-icon>error_outline</mat-icon>
+            <span>{{ profileError() }}</span>
+          </div>
+
+          <!-- Formulaire Coordonnées -->
+          <form [formGroup]="profileForm" (ngSubmit)="onUpdateProfile()" class="profile-form">
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="half-width">
+                <mat-label>Prénom</mat-label>
+                <input matInput type="text" formControlName="firstName" placeholder="Votre prénom">
+                <mat-error *ngIf="profileForm.get('firstName')?.hasError('required')">
+                  Le prénom est requis
+                </mat-error>
+                <mat-error *ngIf="profileForm.get('firstName')?.hasError('minlength')">
+                  Minimum 2 caractères
+                </mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="half-width">
+                <mat-label>Nom</mat-label>
+                <input matInput type="text" formControlName="lastName" placeholder="Votre nom">
+                <mat-error *ngIf="profileForm.get('lastName')?.hasError('required')">
+                  Le nom est requis
+                </mat-error>
+                <mat-error *ngIf="profileForm.get('lastName')?.hasError('minlength')">
+                  Minimum 2 caractères
+                </mat-error>
+              </mat-form-field>
+            </div>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Adresse email (non modifiable)</mat-label>
+              <input matInput type="email" formControlName="email">
+              <mat-icon matPrefix>email</mat-icon>
+              <mat-hint>L'adresse email est associée à vos données d'apprentissage.</mat-hint>
+            </mat-form-field>
+
+            <div class="actions-row">
+              <button
+                mat-flat-button
+                type="submit"
+                class="btn-primary"
+                [disabled]="isSavingProfile() || profileForm.invalid">
+                <mat-spinner *ngIf="isSavingProfile()" diameter="20" class="spinner"></mat-spinner>
+                <span *ngIf="!isSavingProfile()">Sauvegarder</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </mat-tab>
+
+      <!-- Onglet 2 : Sécurité -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon class="tab-icon">lock</mat-icon>
+          <span>Sécurité</span>
+        </ng-template>
+
+        <div class="tab-body">
+          <div class="security-intro">
+            <h3>Modifier votre mot de passe</h3>
+            <p>Pour assurer la protection de votre compte, choisissez un mot de passe robuste d'au moins 8 caractères.</p>
+          </div>
+
+          <!-- Message d'erreur sécurité -->
+          <div *ngIf="passwordError()" class="alert-box alert-error fade-in">
+            <mat-icon>error_outline</mat-icon>
+            <span>{{ passwordError() }}</span>
+          </div>
+
+          <form [formGroup]="securityForm" (ngSubmit)="onChangePassword()" class="security-form">
+            <!-- Ancien mot de passe -->
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Mot de passe actuel</mat-label>
+              <input
+                matInput
+                [type]="hideCurrentPassword() ? 'password' : 'text'"
+                formControlName="currentPassword"
+                autocomplete="current-password">
+              <mat-icon matPrefix>lock</mat-icon>
+              <button
+                mat-icon-button
+                matSuffix
+                type="button"
+                (click)="hideCurrentPassword.set(!hideCurrentPassword())"
+                tabindex="-1">
+                <mat-icon>{{ hideCurrentPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+              <mat-error *ngIf="securityForm.get('currentPassword')?.hasError('required')">
+                Le mot de passe actuel est requis
+              </mat-error>
+            </mat-form-field>
+
+            <!-- Nouveau mot de passe -->
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Nouveau mot de passe</mat-label>
+              <input
+                matInput
+                [type]="hideNewPassword() ? 'password' : 'text'"
+                formControlName="newPassword"
+                autocomplete="new-password">
+              <mat-icon matPrefix>vpn_key</mat-icon>
+              <button
+                mat-icon-button
+                matSuffix
+                type="button"
+                (click)="hideNewPassword.set(!hideNewPassword())"
+                tabindex="-1">
+                <mat-icon>{{ hideNewPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+              <mat-error *ngIf="securityForm.get('newPassword')?.hasError('required')">
+                Le nouveau mot de passe est requis
+              </mat-error>
+              <mat-error *ngIf="securityForm.get('newPassword')?.hasError('minlength')">
+                Au moins 8 caractères requis
+              </mat-error>
+            </mat-form-field>
+
+            <!-- Force du mot de passe -->
+            <div class="password-strength-container" *ngIf="securityForm.get('newPassword')?.value">
+              <div class="strength-bar-track">
+                <div
+                  class="strength-bar-fill"
+                  [style.width.%]="getPasswordStrength().level"
+                  [style.backgroundColor]="getPasswordStrength().color">
+                </div>
+              </div>
+              <span class="strength-label" [style.color]="getPasswordStrength().color">
+                Force : {{ getPasswordStrength().label }}
+              </span>
+            </div>
+
+            <!-- Confirmer le nouveau mot de passe -->
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Confirmer le nouveau mot de passe</mat-label>
+              <input
+                matInput
+                [type]="hideConfirmNewPassword() ? 'password' : 'text'"
+                formControlName="confirmNewPassword"
+                autocomplete="new-password">
+              <mat-icon matPrefix>check_circle_outline</mat-icon>
+              <button
+                mat-icon-button
+                matSuffix
+                type="button"
+                (click)="hideConfirmNewPassword.set(!hideConfirmNewPassword())"
+                tabindex="-1">
+                <mat-icon>{{ hideConfirmNewPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+              <mat-error *ngIf="securityForm.get('confirmNewPassword')?.hasError('required')">
+                La confirmation du mot de passe est requise
+              </mat-error>
+              <mat-error *ngIf="securityForm.hasError('passwordMismatch') && securityForm.get('confirmNewPassword')?.touched">
+                Les mots de passe ne correspondent pas
+              </mat-error>
+            </mat-form-field>
+
+            <div class="actions-row">
+              <button
+                mat-flat-button
+                type="submit"
+                class="btn-primary"
+                [disabled]="isChangingPassword() || securityForm.invalid">
+                <mat-spinner *ngIf="isChangingPassword()" diameter="20" class="spinner"></mat-spinner>
+                <span *ngIf="!isChangingPassword()">Changer le mot de passe</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </mat-tab>
+    </mat-tab-group>
+  </div>
+</div>
