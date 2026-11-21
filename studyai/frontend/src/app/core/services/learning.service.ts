@@ -46,6 +46,17 @@ export class LearningService {
     return this.http.post<LearningResource>(`${this.apiUrl}/study/courses/${courseId}/summary`, {});
   }
 
+  summarizeFile(courseId: number, fileId: number): Observable<LearningResource> {
+    return this.http.post<LearningResource>(
+      `${this.apiUrl}/study/courses/${courseId}/files/${fileId}/summary`, {});
+  }
+
+  exportSummaryPdf(resourceId: number): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/study/resources/${resourceId}/export/pdf`, {
+      responseType: 'blob'
+    });
+  }
+
   generateQuiz(courseId: number, count: number): Observable<LearningResource> {
     return this.http.post<LearningResource>(`${this.apiUrl}/study/courses/${courseId}/quiz`, { count });
   }

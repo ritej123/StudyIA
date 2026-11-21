@@ -114,6 +114,12 @@
                 <mat-icon class="doc-icon">{{ file.contentType === 'application/pdf' ? 'picture_as_pdf' : 'description' }}</mat-icon>
                 <span class="doc-name">{{ file.filename }}</span>
                 <span class="doc-size">{{ formatSize(file.sizeBytes) }}</span>
+              <button mat-icon-button class="summarize-doc-btn"
+                      [disabled]="isGenerating()"
+                      [attr.aria-label]="'Synthétiser ' + file.filename"
+                      (click)="summarizeDocument(file.id)">
+                <mat-icon>summarize</mat-icon>
+              </button>
               <button mat-icon-button class="delete-doc-btn" (click)="deleteDocument(file.id)">
                 <mat-icon>close</mat-icon>
               </button>
@@ -250,9 +256,17 @@
       <section *ngIf="activeResource() as resource" class="resource-detail">
         <div class="resource-detail-header">
           <h3>{{ resource.title }}</h3>
-          <button mat-icon-button color="primary" (click)="activeResource.set(null)">
-            <mat-icon>close</mat-icon>
-          </button>
+          <div>
+            <button *ngIf="resource.kind === 'SUMMARY'"
+                    mat-icon-button color="primary"
+                    [attr.aria-label]="'Exporter la synthèse en PDF'"
+                    (click)="exportSummaryPdf(resource)">
+              <mat-icon>picture_as_pdf</mat-icon>
+            </button>
+            <button mat-icon-button color="primary" (click)="activeResource.set(null)">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
         </div>
 
         <!-- Summary -->

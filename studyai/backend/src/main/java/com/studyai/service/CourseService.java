@@ -100,7 +100,7 @@ public class CourseService {
     public void deleteFile(String email, Long courseId, Long fileId) {
         Course course = getCourse(email, courseId);
         CourseFile file = courseFileRepository.findByIdAndCourseId(fileId, course.getId())
-            .orElseThrow(() -> new CourseNotFoundException(fileId));
+            .orElseThrow(() -> new InvalidDocumentException("Ce document n'existe pas dans le cours."));
         courseFileRepository.delete(file);
         if (file.getStorageKey() != null) {
             documentStorage.delete(file.getStorageKey());
@@ -112,6 +112,19 @@ public class CourseService {
         Long ownerId = userId(email);
         return courseRepository.findByIdAndUserId(courseId, ownerId)
             .orElseThrow(() -> new CourseNotFoundException(courseId));
+    }
+
+    @Transactional(readOnly = true)
+    public String getDocumentContext(String email, Long courseId, Long fileId) {
+        Course course = getCourse(email, courseId);
+        CourseFile file = courseFileRepository.findByIdAndCourseId(fileId, course.getId())
+            .orElseThrow(() -> new CourseNotFoundException(fileId));
+        String text = file.getExtractedText();
+        if (text == null || text.isBlank()) {
+            throw new InvalidDocumentException(
+                "Ce document ne contient aucun texte exploitable pour générer une synthèse.");
+        }
+        return text.substring(0, Math.min(text.length(), 100_000));
     }
 
     @Transactional(readOnly = true)

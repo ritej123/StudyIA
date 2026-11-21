@@ -182,6 +182,43 @@ export class LearningComponent implements OnInit {
     this.runGeneration(courseId => this.learningService.summarize(courseId));
   }
 
+  summarizeDocument(fileId: number): void {
+    const courseId = this.selectedCourseId();
+    if (courseId === null || this.isGenerating()) {
+      return;
+    }
+    this.isGenerating.set(true);
+    this.errorMessage.set(null);
+    this.learningService.summarizeFile(courseId, fileId).subscribe({
+      next: resource => {
+        this.resources.update(resources => [resource, ...resources]);
+        this.openResource(resource);
+        this.isGenerating.set(false);
+      },
+      error: error => {
+        this.isGenerating.set(false);
+        this.errorMessage.set(this.getErrorMessage(error));
+      }
+    });
+  }
+
+  exportSummaryPdf(resource: LearningResource): void {
+    if (resource.kind !== 'SUMMARY') {
+      return;
+    }
+    this.learningService.exportSummaryPdf(resource.id).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = 'synthese-studyai.pdf';
+        anchor.click();
+        URL.revokeObjectURL(url);
+      },
+      error: error => this.errorMessage.set(this.getErrorMessage(error))
+    });
+  }
+
   generateQuiz(): void {
     this.runGeneration(courseId => this.learningService.generateQuiz(courseId, this.generatedCount));
   }

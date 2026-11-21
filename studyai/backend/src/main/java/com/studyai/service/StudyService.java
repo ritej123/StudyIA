@@ -25,6 +25,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
 
@@ -53,6 +61,59 @@ public class StudyService {
         String context = courseService.getCourseContext(email, courseId);
         String summary = aiClient.generate("summary", context, "", 0);
         return saveResource(email, course, "SUMMARY", "Synthèse - " + course.getTitle(), summary);
+    }
+
+    @Transactional
+    public LearningResourceResponse summarizeFile(String email, Long courseId, Long fileId) {
+        Course course = courseService.getCourse(email, courseId);
+        String context = courseService.getDocumentContext(email, courseId, fileId);
+        String summary = aiClient.generate("summary", context, "", 0);
+        return saveResource(email, course, "SUMMARY",
+            "Synthèse - " + course.getTitle() + " (document " + fileId + ")", summary);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportSummaryPdf(String email, Long resourceId) {
+        Long ownerId = userId(email);
+        LearningResource resource = resourceRepository.findByIdAndOwnerId(resourceId, ownerId)
+            .orElseThrow(() -> new LearningResourceNotFoundException(resourceId));
+        if (!"SUMMARY".equals(resource.getKind())) {
+            throw new InvalidDocumentException("Cette ressource n'est pas une synthèse.");
+        }
+        try (PDDocument document = new PDDocument()) {
+            List<String> lines = wrapPdfText(resource.getContent());
+            int linesPerPage = 46;
+            for (int start = 0; start < lines.size() || start == 0; start += linesPerPage) {
+                PDPage page = new PDPage(PDRectangle.A4);
+                document.addPage(page);
+                try (PDPageContentStream content = new PDPageContentStream(document, page)) {
+                    content.beginText();
+                    content.setFont(PDType1Font.HELVETICA_BOLD, 16);
+                    content.newLineAtOffset(50, 790);
+                    content.showText("StudyAI - Synthese");
+                    content.endText();
+
+                    content.beginText();
+                    content.setFont(PDType1Font.HELVETICA, 11);
+                    content.setLeading(15);
+                    content.newLineAtOffset(50, 760);
+                    int end = Math.min(start + linesPerPage, lines.size());
+                    for (int i = start; i < end; i++) {
+                        content.showText(sanitizePdfText(lines.get(i)));
+                        content.newLine();
+                    }
+                    content.endText();
+                }
+                if (start + linesPerPage >= lines.size()) {
+                    break;
+                }
+            }
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            document.save(output);
+            return output.toByteArray();
+        } catch (IOException ex) {
+            throw new IllegalStateException("Impossible de générer le PDF de synthèse.", ex);
+        }
     }
 
     @Transactional
@@ -186,6 +247,46 @@ public class StudyService {
                 throw new StudyAiException(502, "Les cartes mémoire générées sont incomplètes.");
             }
         }
+    }
+
+    private List<String> wrapPdfText(String text) {
+        java.util.ArrayList<String> lines = new java.util.ArrayList<>();
+        if (text == null || text.isBlank()) {
+            lines.add("");
+            return lines;
+        }
+        for (String paragraph : text.replace("\r", "").split("\n", -1)) {
+            String remaining = paragraph;
+            if (remaining.isBlank()) {
+                lines.add("");
+                continue;
+            }
+            while (remaining.length() > 95) {
+                int splitAt = remaining.lastIndexOf(' ', 95);
+                if (splitAt < 40) {
+                    splitAt = 95;
+                }
+                lines.add(remaining.substring(0, splitAt).trim());
+                remaining = remaining.substring(splitAt).trim();
+            }
+            if (!remaining.isEmpty()) {
+                lines.add(remaining);
+            }
+        }
+        return lines;
+    }
+
+    private String sanitizePdfText(String text) {
+        StringBuilder result = new StringBuilder();
+        for (char character : text.toCharArray()) {
+            int value = character;
+            if ((value >= 32 && value <= 126) || (value >= 160 && value <= 255)) {
+                result.append(character);
+            } else {
+                result.append(' ');
+            }
+        }
+        return result.toString();
     }
 
     private boolean allOptionsAreText(JsonNode options) {

@@ -9,7 +9,9 @@ RUN mvn package -DskipTests -B
 # Étape 2 : Runtime
 FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
-RUN mkdir -p /app/uploads
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /app/uploads
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

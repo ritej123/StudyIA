@@ -2,16 +2,21 @@
 
 import base64
 import binascii
+import json
 import os
 import re
+import logging
 from datetime import datetime, timezone
-from io import BytesIO
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field
-from pypdf import PdfReader
-from pypdf.errors import PdfReadError
+from starlette.responses import JSONResponse
+import pdf_text
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("studyai.ai")
 
 app = FastAPI(
     title="StudyAI — Service IA",
@@ -19,8 +24,20 @@ app = FastAPI(
     version="1.0.0",
 )
 
+
+@app.exception_handler(RequestValidationError)
+async def handle_request_validation_error(request: Request, exc: RequestValidationError):
+    issues = [
+        {"loc": error.get("loc", []), "type": error.get("type", "validation_error")}
+        for error in exc.errors()
+    ]
+    logger.warning("Requête invalide sur %s: %s", request.url.path, issues)
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-flash-lite-latest")
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
     f"{GEMINI_MODEL}:generateContent"
@@ -39,39 +56,113 @@ class GenerateRequest(BaseModel):
     count: int = Field(default=0, ge=0, le=15)
 
 
+def decode_base64_content(value) -> bytes:
+    """Décode du base64 de façon tolérante (MIME, URL-safe, data URI, padding)."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("content_base64 absent ou vide")
+    value = value.strip()
+    if value.startswith("data:") and "," in value:
+        value = value.split(",", 1)[1]
+    value = "".join(value.split())                      # retire retours à la ligne et espaces
+    value = value.replace("-", "+").replace("_", "/")   # accepte le base64 URL-safe
+    value += "=" * (-len(value) % 4)                    # corrige le padding manquant
+    return base64.b64decode(value, validate=True)
+
+
+def decode_text(content: bytes) -> str:
+    """UTF-8 d'abord, repli sur Windows-1252 (accents français)."""
+    try:
+        return content.decode("utf-8-sig").strip()
+    except UnicodeDecodeError:
+        logger.warning("Fichier texte non UTF-8, repli sur cp1252")
+        return content.decode("cp1252", errors="replace").strip()
+
+
 def extract_pdf(content: bytes) -> str:
     try:
-        reader = PdfReader(BytesIO(content))
-        return "\n".join(page.extract_text() or "" for page in reader.pages).strip()
-    except (PdfReadError, OSError, ValueError) as exc:
-        raise HTTPException(status_code=422, detail="Le PDF ne peut pas être lu.") from exc
+        return pdf_text.extract_text(content)
+    except ValueError as exc:
+        detail = str(exc)
+        if "limité" in detail:
+            raise HTTPException(status_code=413, detail=detail) from exc
+        raise HTTPException(status_code=422, detail=detail) from exc
 
 
 @app.post("/extract")
-async def extract_document(request: ExtractRequest):
-    extension = request.filename.rsplit(".", 1)[-1].lower() if "." in request.filename else ""
-    try:
-        content = base64.b64decode(request.content_base64, validate=True)
-    except (ValueError, binascii.Error) as exc:
-        raise HTTPException(status_code=400, detail="Le document transmis est invalide.") from exc
+async def extract_document(request: Request):
+    content_type = request.headers.get("content-type", "")
+    if content_type.startswith("multipart/form-data"):
+        form = await request.form()
+        uploaded = form.get("file")
+        if uploaded is None or not hasattr(uploaded, "read"):
+            raise HTTPException(status_code=400, detail="Le champ multipart 'file' est requis.")
+        filename = getattr(uploaded, "filename", "") or ""
+        content = await uploaded.read()
+        if hasattr(uploaded, "close"):
+            await uploaded.close()
+        multipart = True
+    elif content_type.startswith("application/json"):
+        try:
+            body = await request.body()
+            payload = json.loads(body)
+            filename = payload.get("filename", "")
+            content = decode_base64_content(payload.get("content_base64"))
+        except (AttributeError, KeyError, TypeError, ValueError, binascii.Error) as exc:
+            logger.warning("Requête /extract invalide: %s: %s", type(exc).__name__, exc)
+            raise HTTPException(status_code=400, detail="Le document transmis est invalide.") from exc
+        multipart = False
+    else:
+        raise HTTPException(status_code=415, detail="Content-Type application/json ou multipart/form-data requis.")
 
     if not content:
         raise HTTPException(status_code=400, detail="Le document est vide.")
+
+    extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     if extension == "pdf":
         if not content.startswith(b"%PDF-"):
+            logger.warning("Signature PDF absente: filename=%s, début=%r", filename, content[:16])
             raise HTTPException(status_code=415, detail="Le fichier n'est pas un PDF valide.")
         text = extract_pdf(content)
     elif extension == "txt":
-        try:
-            text = content.decode("utf-8-sig").strip()
-        except UnicodeDecodeError as exc:
-            raise HTTPException(status_code=415, detail="Le fichier texte doit être encodé en UTF-8.") from exc
+        text = decode_text(content)
     else:
         raise HTTPException(status_code=415, detail="Seuls les fichiers PDF et TXT sont acceptés.")
 
+    logger.info("Document extrait: filename=%s extension=%s chars=%d",
+                filename, extension, len(text))
     if not text:
         raise HTTPException(status_code=422, detail="Aucun texte exploitable n'a été trouvé dans ce document.")
-    return {"text": text}
+    return {"text": text, "chars": len(text)} if multipart else {"text": text}
+
+
+@app.post("/extract-file")
+async def extract_uploaded_file(file: UploadFile = File(...)):
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Fichier vide")
+
+    filename = file.filename or ""
+    extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if extension not in {"pdf", "txt"}:
+        raise HTTPException(
+            status_code=415,
+            detail="Seuls les fichiers PDF et TXT sont acceptés.",
+        )
+
+    try:
+        if extension == "pdf":
+            text = pdf_text.extract_text(data)
+        else:
+            text = decode_text(data)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if not text:
+        raise HTTPException(
+            status_code=422,
+            detail="Aucun texte exploitable n'a été trouvé dans ce document.",
+        )
+    return {"text": text, "chars": len(text)}
 
 
 def relevant_context(context: str, prompt: str) -> str:
@@ -150,9 +241,36 @@ async def generate(request: GenerateRequest):
                 headers={"x-goog-api-key": GEMINI_API_KEY},
                 json=payload,
             )
+            if (
+                response.status_code in {429, 503}
+                and GEMINI_FALLBACK_MODEL
+                and GEMINI_FALLBACK_MODEL != GEMINI_MODEL
+            ):
+                logger.warning(
+                    "Modèle Gemini %s saturé (HTTP %s); nouvelle tentative avec %s.",
+                    GEMINI_MODEL,
+                    response.status_code,
+                    GEMINI_FALLBACK_MODEL,
+                )
+                response = await client.post(
+                    "https://generativelanguage.googleapis.com/v1beta/models/"
+                    f"{GEMINI_FALLBACK_MODEL}:generateContent",
+                    headers={"x-goog-api-key": GEMINI_API_KEY},
+                    json=payload,
+                )
     except httpx.RequestError as exc:
         raise HTTPException(status_code=503, detail="Le fournisseur IA est momentanément inaccessible.") from exc
     if response.is_error:
+        try:
+            provider_detail = response.json().get("error", {}).get("message", "")
+        except ValueError:
+            provider_detail = ""
+        logger.warning("Gemini a refusé la requête: HTTP %s %s", response.status_code, provider_detail)
+        if response.status_code in {429, 503}:
+            raise HTTPException(
+                status_code=503,
+                detail="Le fournisseur IA est momentanément saturé. Réessayez dans quelques instants.",
+            )
         raise HTTPException(
             status_code=502,
             detail=f"Le fournisseur IA a refusé la requête (HTTP {response.status_code}).",
