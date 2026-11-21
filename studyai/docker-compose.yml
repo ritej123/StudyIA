@@ -31,8 +31,6 @@ services:
       POSTGRES_USER: studyai
       POSTGRES_PASSWORD: ritej
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/studyai
-      SPRING_DATASOURCE_USERNAME: studyai
-      SPRING_DATASOURCE_PASSWORD: ritej
       JWT_SECRET: uwM45UKWBsSIsGO6paZiXbEVgaqaIuGVOk9b6z03vFo=
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-900000}
       REFRESH_TOKEN_EXPIRATION_DAYS: ${REFRESH_TOKEN_EXPIRATION_DAYS:-7}
@@ -51,7 +49,7 @@ services:
       ai-service:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/swagger-ui.html || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api-docs || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -65,13 +63,12 @@ services:
     environment:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-flash}
-      GEMINI_FALLBACK_MODEL: ${GEMINI_FALLBACK_MODEL:-gemini-flash-lite-latest}
     ports:
       - "8000:8000"
     networks:
       - studyai-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3

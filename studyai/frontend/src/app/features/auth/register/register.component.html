@@ -121,6 +121,9 @@
           <mat-error *ngIf="registerForm.get('password')?.hasError('minlength')">
             Au moins 8 caractères requis
           </mat-error>
+          <mat-error *ngIf="registerForm.get('password')?.hasError('pattern') && !registerForm.get('password')?.hasError('minlength')">
+            Le mot de passe doit contenir au moins une majuscule et un chiffre
+          </mat-error>
         </mat-form-field>
 
         <!-- Indicateur de force du mot de passe -->

@@ -17,7 +17,7 @@ import java.util.UUID;
 @Slf4j
 public class DocumentStorageService {
 
-    private static final long MAX_SIZE = 10 * 1024 * 1024;
+    private static final long MAX_SIZE = 20 * 1024 * 1024;
     private static final byte[] PDF_MAGIC = "%PDF-".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
 
     @Value("${app.upload.dir}")
@@ -40,7 +40,7 @@ public class DocumentStorageService {
             throw new InvalidDocumentException("Le document est vide.");
         }
         if (file.getSize() > MAX_SIZE) {
-            throw new InvalidDocumentException("Le document dépasse la limite de 10 Mo.");
+            throw new InvalidDocumentException("Le document dépasse la limite de 20 Mo.");
         }
 
         String originalName = file.getOriginalFilename();

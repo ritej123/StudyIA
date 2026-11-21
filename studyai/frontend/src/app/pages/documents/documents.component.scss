@@ -1,0 +1,39 @@
+.docs-page { max-width: 900px; margin: 20px auto; padding: 0 20px; }
+
+.dropzone {
+  border: 2px dashed #c7d2fe;
+  border-radius: 16px;
+  background: #fff;
+  padding: 30px;
+  text-align: center;
+  transition: .2s;
+
+  &.over { background: #eef2ff; border-color: #6366f1; }
+  small { display: block; margin-top: 10px; color: #64748b; }
+
+  .selected {
+    margin-top: 16px;
+    display: flex; justify-content: center; align-items: center; gap: 14px;
+    flex-wrap: wrap;
+  }
+}
+
+.btn, .btn-outline {
+  background: #6366f1; color: #fff; border: none;
+  padding: 8px 18px; border-radius: 10px; cursor: pointer; font-weight: 600;
+  &:disabled { opacity: .6; cursor: not-allowed; }
+}
+.btn-outline { background: transparent; color: #6366f1; border: 1px solid #6366f1; }
+
+.msg { margin: 14px 0; padding: 10px 14px; border-radius: 10px; }
+.error   { background: #fee2e2; color: #b91c1c; }
+.success { background: #dcfce7; color: #15803d; }
+
+table {
+  width: 100%; margin-top: 20px; border-collapse: collapse;
+  background: #fff; border-radius: 12px; overflow: hidden;
+  th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+  th { background: #f1f5f9; font-size: 13px; }
+  .actions button { background: none; border: none; cursor: pointer; font-size: 18px; }
+}
+.empty { text-align: center; color: #64748b; margin-top: 24px; }

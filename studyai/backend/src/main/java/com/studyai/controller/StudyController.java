@@ -10,9 +10,6 @@ import com.studyai.service.StudyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -39,28 +36,6 @@ public class StudyController {
             @PathVariable Long courseId) {
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(studyService.summarize(user.getUsername(), courseId));
-    }
-
-    @PostMapping("/courses/{courseId}/files/{fileId}/summary")
-    public ResponseEntity<LearningResourceResponse> summarizeFile(
-            @AuthenticationPrincipal UserDetails user,
-            @PathVariable Long courseId,
-            @PathVariable Long fileId) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-            .body(studyService.summarizeFile(user.getUsername(), courseId, fileId));
-    }
-
-    @GetMapping("/resources/{resourceId}/export/pdf")
-    public ResponseEntity<byte[]> exportSummaryPdf(
-            @AuthenticationPrincipal UserDetails user,
-            @PathVariable Long resourceId) {
-        byte[] pdf = studyService.exportSummaryPdf(user.getUsername(), resourceId);
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDisposition(ContentDisposition.attachment()
-            .filename("synthese-studyai.pdf")
-            .build());
-        return new ResponseEntity<>(pdf, headers, HttpStatus.OK);
     }
 
     @PostMapping("/courses/{courseId}/quiz")

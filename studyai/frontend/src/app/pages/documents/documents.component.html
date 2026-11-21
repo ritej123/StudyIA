@@ -1,0 +1,47 @@
+<div class="docs-page">
+  <h2>📄 Mes documents</h2>
+
+  <!-- Zone d'import -->
+  <div class="dropzone"
+       [class.over]="dragOver"
+       (dragover)="onDragOver($event)"
+       (dragleave)="dragOver = false"
+       (drop)="onDrop($event)">
+    <p>Glissez votre fichier ici ou</p>
+    <label class="btn-outline">
+      Choisir un fichier
+      <input type="file" hidden (change)="onFileSelected($event)"
+             accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.xls,.xlsx" />
+    </label>
+    <small>PDF, Word, PowerPoint, Excel, TXT : 20 Mo max</small>
+
+    <div class="selected" *ngIf="selectedFile">
+      <span>📎 {{ selectedFile.name }} ({{ formatSize(selectedFile.size) }})</span>
+      <button class="btn" (click)="upload()" [disabled]="uploading">
+        {{ uploading ? 'Import en cours...' : 'Importer' }}
+      </button>
+    </div>
+  </div>
+
+  <p class="msg error" *ngIf="error">{{ error }}</p>
+  <p class="msg success" *ngIf="success">{{ success }}</p>
+
+  <!-- Liste -->
+  <table *ngIf="documents.length; else empty">
+    <thead>
+      <tr><th>Nom</th><th>Taille</th><th>Date</th><th></th></tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let d of documents">
+        <td>{{ d.originalName }}</td>
+        <td>{{ formatSize(d.size) }}</td>
+        <td>{{ d.uploadedAt | date:'dd/MM/yyyy HH:mm' }}</td>
+        <td class="actions">
+          <button (click)="download(d)" title="Télécharger">⬇️</button>
+          <button (click)="remove(d)" title="Supprimer">🗑️</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <ng-template #empty><p class="empty">Aucun document pour le moment.</p></ng-template>
+</div>

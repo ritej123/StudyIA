@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
 import { noAuthGuard } from './core/guards/no-auth.guard';
+import { DocumentsComponent } from './pages/documents/documents.component';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/auth/login', pathMatch: 'full' },
@@ -57,6 +58,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/users/admin-users.component').then(m => m.AdminUsersComponent)
       }
     ]
+  },
+  {
+    path: 'documents',
+    component: DocumentsComponent,
+    canActivate: [authGuard]
   },
   { path: '**', redirectTo: '/auth/login' }
 ];

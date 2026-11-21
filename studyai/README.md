@@ -24,6 +24,7 @@
 
 Fonctionnalités clés :
 - 📚 **Gestion de cours & documents** : Dépôt et indexation de cours (supports PDF, textes).
+- 🔎 **Reconnaissance OCR** : Extraction du texte des PDF scannés en français, anglais et arabe (jusqu'à 50 pages scannées par document).
 - 🧠 **Tuteur IA Interactif & RAG** : Réponses contextualisées basées sur les documents de cours grâce au Retrieval-Augmented Generation (RAG) et au modèle Google Gemini.
 - 📝 **Génération automatique de résumés & synthèses** : Extraction des points essentiels pour faciliter les révisions.
 - 🎯 **Quiz & Cartes mémoire (Flashcards)** : Évaluations adaptatives et révision espacée.
@@ -79,7 +80,7 @@ L'application repose sur une architecture de microservices conteneurisée :
 
 - **Frontend (`frontend`)** : Application Single Page en Angular 17+ servie via Nginx (port 80). Interface moderne pour étudiants et administrateurs.
 - **Backend (`backend`)** : API REST sécurisée sous Spring Boot 3 (Java 17) (port 8080). Gère l'authentification JWT, la logique métier, la persistance des données et l'orchestration.
-- **Service IA (`ai-service`)** : Microservice Python FastAPI (port 8000). Responsable du pipeline RAG, de l'extraction des PDF, des embeddings vectoriels et des interactions avec l'API Gemini.
+- **Service IA (`ai-service`)** : Microservice Python FastAPI (port 8000). Responsable du pipeline RAG, de l'extraction et de l'OCR des PDF, des embeddings vectoriels et des interactions avec l'API Gemini.
 - **Base de données (`postgres`)** : PostgreSQL 16 Alpine (port 5433) pour le stockage relationnel (utilisateurs, cours, quiz, statistiques).
 
 ---
@@ -178,6 +179,9 @@ pip install -r requirements.txt
 # Démarrage avec rechargement automatique
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
+En développement local, l'OCR des PDF scannés nécessite Tesseract OCR avec
+les données de langue `fra`, `eng` et `ara`. L'image Docker du service IA les
+installe automatiquement.
 
 ### 3. Backend (Spring Boot)
 ```bash

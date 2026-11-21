@@ -2,13 +2,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# OCR pour les PDF scannés (français, anglais et arabe)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
     tesseract-ocr tesseract-ocr-fra tesseract-ocr-eng tesseract-ocr-ara \
     && tesseract --list-langs | grep -Eq '(^|[[:space:]])fra([[:space:]]|$)' \
     && tesseract --list-langs | grep -Eq '(^|[[:space:]])eng([[:space:]]|$)' \
     && tesseract --list-langs | grep -Eq '(^|[[:space:]])ara([[:space:]]|$)' \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Installation des dépendances
 COPY requirements.txt .

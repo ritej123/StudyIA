@@ -48,7 +48,11 @@ export class RegisterComponent {
     firstName: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(50)]],
     lastName: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(50)]],
     email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(8)]],
+    password: ['', [
+      Validators.required,
+      Validators.minLength(8),
+      Validators.pattern(/^(?=.*[A-Z])(?=.*[0-9]).{8,}$/)
+    ]],
     confirmPassword: ['', [Validators.required]]
   }, { validators: passwordMatchValidator });
 
@@ -106,6 +110,12 @@ export class RegisterComponent {
         this.isLoading.set(false);
         if (err.status === 409) {
           this.errorMessage.set('Cet email existe déjà');
+        } else if (err.status === 400 && err.error?.errors && typeof err.error.errors === 'object') {
+          const validationMessages = Object.values(err.error.errors)
+            .filter((message): message is string => typeof message === 'string');
+          this.errorMessage.set(validationMessages.length
+            ? validationMessages.join(' ')
+            : err.error.message || 'Les données saisies sont invalides');
         } else if (err.error?.message) {
           this.errorMessage.set(err.error.message);
         } else {

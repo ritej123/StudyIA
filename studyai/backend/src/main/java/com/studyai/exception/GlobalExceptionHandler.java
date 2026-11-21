@@ -1,6 +1,8 @@
 package com.studyai.exception;
 
 import com.studyai.dto.response.ErrorResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -18,6 +20,8 @@ import java.util.Map;
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
@@ -90,8 +94,18 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler({InvalidDocumentException.class, IllegalArgumentException.class})
-    public ResponseEntity<ErrorResponse> handleInvalidLearningRequest(RuntimeException ex) {
+    @ExceptionHandler(InvalidDocumentException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidDocument(InvalidDocumentException ex) {
+        log.warn("Document invalide : {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+            ErrorResponse.builder().status(400).code("INVALID_LEARNING_REQUEST")
+                .message(ex.getMessage()).timestamp(Instant.now()).build()
+        );
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
+        log.warn("Requête invalide : {}", ex.getMessage(), ex);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
             ErrorResponse.builder().status(400).code("INVALID_LEARNING_REQUEST")
                 .message(ex.getMessage()).timestamp(Instant.now()).build()
@@ -100,6 +114,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(StudyAiException.class)
     public ResponseEntity<ErrorResponse> handleStudyAiFailure(StudyAiException ex) {
+        log.error("Échec du service IA : {}", ex.getMessage(), ex);
         return ResponseEntity.status(ex.getStatus()).body(
             ErrorResponse.builder().status(ex.getStatus()).code("STUDY_AI_UNAVAILABLE")
                 .message(ex.getMessage()).timestamp(Instant.now()).build()
@@ -114,11 +129,20 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler({FileTooLargeException.class, MaxUploadSizeExceededException.class})
-    public ResponseEntity<ErrorResponse> handleFileTooLarge(Exception ex) {
+    @ExceptionHandler(FileTooLargeException.class)
+    public ResponseEntity<ErrorResponse> handleFileTooLarge(FileTooLargeException ex) {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(
             ErrorResponse.builder().status(413).code("FILE_TOO_LARGE")
-                .message("Le fichier dépasse la taille maximale autorisée de 10 Mo")
+                .message(ex.getMessage())
+                .timestamp(Instant.now()).build()
+        );
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMultipartTooLarge(MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(
+            ErrorResponse.builder().status(413).code("FILE_TOO_LARGE")
+                .message("Le document dépasse la taille maximale autorisée de 20 Mo.")
                 .timestamp(Instant.now()).build()
         );
     }
@@ -149,6 +173,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
+        log.error("Erreur non gérée", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
             ErrorResponse.builder().status(500).code("INTERNAL_ERROR")
                 .message("Échec de l'opération, veuillez réessayer plus tard")

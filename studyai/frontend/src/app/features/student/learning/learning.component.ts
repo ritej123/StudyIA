@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
 import { SkeletonLoaderComponent } from '../../../shared/components/skeleton-loader/skeleton-loader.component';
 import { forkJoin, switchMap } from 'rxjs';
 import {
@@ -20,7 +21,7 @@ import { LearningService } from '../../../core/services/learning.service';
 @Component({
   selector: 'app-learning',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatIconModule, SkeletonLoaderComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatIconModule, SkeletonLoaderComponent],
   templateUrl: './learning.component.html',
   styleUrls: ['./learning.component.scss']
 })
@@ -145,6 +146,11 @@ export class LearningComponent implements OnInit {
     if (!file || courseId === null) {
       return;
     }
+    if (file.size > 20 * 1024 * 1024) {
+      this.errorMessage.set('Le fichier dépasse la limite de 20 Mo.');
+      input.value = '';
+      return;
+    }
     this.isUploading.set(true);
     this.errorMessage.set(null);
     this.learningService.uploadDocument(courseId, file).subscribe({
@@ -180,43 +186,6 @@ export class LearningComponent implements OnInit {
 
   generateSummary(): void {
     this.runGeneration(courseId => this.learningService.summarize(courseId));
-  }
-
-  summarizeDocument(fileId: number): void {
-    const courseId = this.selectedCourseId();
-    if (courseId === null || this.isGenerating()) {
-      return;
-    }
-    this.isGenerating.set(true);
-    this.errorMessage.set(null);
-    this.learningService.summarizeFile(courseId, fileId).subscribe({
-      next: resource => {
-        this.resources.update(resources => [resource, ...resources]);
-        this.openResource(resource);
-        this.isGenerating.set(false);
-      },
-      error: error => {
-        this.isGenerating.set(false);
-        this.errorMessage.set(this.getErrorMessage(error));
-      }
-    });
-  }
-
-  exportSummaryPdf(resource: LearningResource): void {
-    if (resource.kind !== 'SUMMARY') {
-      return;
-    }
-    this.learningService.exportSummaryPdf(resource.id).subscribe({
-      next: blob => {
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = 'synthese-studyai.pdf';
-        anchor.click();
-        URL.revokeObjectURL(url);
-      },
-      error: error => this.errorMessage.set(this.getErrorMessage(error))
-    });
   }
 
   generateQuiz(): void {

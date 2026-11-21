@@ -56,10 +56,7 @@ export const errorInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, n
         });
       }
 
-      return throwError(() => ({
-        ...error,
-        userMessage: frenchMessage
-      }));
+      return throwError(() => error);
     })
   );
 };
