@@ -1,0 +1,564 @@
+<section class="admin-dashboard-page">
+
+  <!-- ═══════════════════════════ HEADER ═══════════════════════════ -->
+  <header class="dashboard-header">
+    <div class="heading-copy">
+      <span class="eyebrow">
+        <mat-icon class="eyebrow-icon">admin_panel_settings</mat-icon>
+        CENTRE DE PILOTAGE · StudyAI
+      </span>
+      <h1>Tableau de bord <span class="heading-accent">Administrateur</span></h1>
+      <p class="heading-sub">Supervizez l'ensemble de la plateforme en temps réel.</p>
+    </div>
+
+    <div class="header-meta">
+      <!-- Live clock -->
+      <div class="clock-card">
+        <mat-icon>schedule</mat-icon>
+        <div class="clock-info">
+          <span class="clock-time">{{ currentTime() | date:'HH:mm:ss' }}</span>
+          <span class="clock-date">{{ currentTime() | date:'EEEE d MMMM yyyy':'':'fr' }}</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <span *ngIf="lastUpdated() as updated" class="last-updated">
+          <span class="live-dot pulse"></span>
+          Synchro {{ updated | date:'HH:mm' }}
+        </span>
+        <button class="btn-action btn-refresh" type="button"
+                (click)="fetchData(false)"
+                [disabled]="isRefreshing() || isLoading()"
+                matTooltip="Rafraîchir toutes les données">
+          <mat-icon [class.spinning]="isRefreshing()">refresh</mat-icon>
+          <span>{{ isRefreshing() ? 'Actualisation…' : 'Actualiser' }}</span>
+        </button>
+        <a class="btn-action btn-primary-action" routerLink="/admin/users">
+          <mat-icon>manage_accounts</mat-icon>
+          <span>Gérer les comptes</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ════════════════════ SKELETON ════════════════════ -->
+  <ng-container *ngIf="isLoading()">
+    <div class="skeleton-kpi-row">
+      <div class="skeleton-kpi" *ngFor="let i of [1,2,3,4]">
+        <div class="sk sk-icon"></div>
+        <div class="sk sk-title"></div>
+        <div class="sk sk-value"></div>
+        <div class="sk sk-caption"></div>
+      </div>
+    </div>
+    <div class="skeleton-main-grid">
+      <div class="sk sk-tall"></div>
+      <div class="sk sk-tall"></div>
+      <div class="sk sk-medium"></div>
+    </div>
+  </ng-container>
+
+  <!-- ════════════════════ ERROR ════════════════════ -->
+  <div *ngIf="!isLoading() && loadError()" class="dashboard-error" role="alert">
+    <div class="error-icon-wrap"><mat-icon>cloud_off</mat-icon></div>
+    <div class="error-body">
+      <strong>Données non disponibles</strong>
+      <p>{{ loadError() }}</p>
+    </div>
+    <button class="btn-action btn-refresh" type="button" (click)="fetchData()" [disabled]="isRefreshing()">
+      <mat-icon>refresh</mat-icon>Réessayer
+    </button>
+  </div>
+
+  <!-- ════════════════════════ MAIN ════════════════════════ -->
+  <ng-container *ngIf="!isLoading() && stats() as S">
+
+    <!-- ── Smart Alerts ────────────────────────────────────────────── -->
+    <div class="alerts-row fade-in" *ngIf="alerts().length > 0">
+      <div
+        *ngFor="let alert of alerts()"
+        class="alert-chip"
+        [class]="'alert-' + alert.level">
+        <mat-icon>{{ alert.icon }}</mat-icon>
+        <span>{{ alert.message }}</span>
+        <a *ngIf="alert.link" [routerLink]="alert.link" class="alert-link">
+          {{ alert.action }} <mat-icon>arrow_forward</mat-icon>
+        </a>
+      </div>
+    </div>
+
+    <!-- ── Section Label ───────────────────────────────────────────── -->
+    <div class="section-intro fade-in">
+      <div>
+        <h2 class="section-title">Vue d'ensemble</h2>
+        <p class="section-sub">Indicateurs clés · Données en direct</p>
+      </div>
+      <div class="health-badge" [class.health-good]="platformHealth >= 70" [class.health-warn]="platformHealth < 70 && platformHealth >= 40" [class.health-bad]="platformHealth < 40">
+        <mat-icon>{{ platformHealth >= 70 ? 'verified' : platformHealth >= 40 ? 'warning' : 'error' }}</mat-icon>
+        Santé plateforme : {{ platformHealth }}%
+      </div>
+    </div>
+
+    <!-- ══════════════ KPI CARDS ══════════════ -->
+    <section class="kpi-grid fade-in" aria-label="Indicateurs principaux">
+      <article
+        *ngFor="let kpi of kpis; let i = index"
+        class="kpi-card"
+        [class]="'kpi-card tone-' + kpi.tone"
+        [style.animation-delay]="(i * 70) + 'ms'">
+
+        <!-- Decorative background blob -->
+        <div class="kpi-blob"></div>
+
+        <div class="kpi-header">
+          <span class="kpi-label">{{ kpi.title }}</span>
+          <span class="kpi-icon-wrap"><mat-icon>{{ kpi.icon }}</mat-icon></span>
+        </div>
+
+        <div class="kpi-value-row">
+          <strong class="kpi-value">{{ animKpi()[i] | number }}</strong>
+          <span class="kpi-trend" [class.positive]="kpi.trend > 0" [class.negative]="kpi.trend < 0">
+            <mat-icon>{{ kpi.trend > 0 ? 'trending_up' : 'trending_down' }}</mat-icon>
+            {{ kpi.trend > 0 ? '+' : '' }}{{ kpi.trend }}%
+          </span>
+        </div>
+
+        <p class="kpi-caption">{{ kpi.caption }}</p>
+        <span class="kpi-trend-label">{{ kpi.trendLabel }}</span>
+
+        <div class="kpi-footer">
+          <div class="kpi-bar-track">
+            <div class="kpi-bar-fill" [style.width.%]="(animKpi()[i] / (S.totalStudents || 1)) * 100 > 100 ? 100 : (animKpi()[i] / (S.totalStudents || 1)) * 100"></div>
+          </div>
+          <a *ngIf="kpi.link" [routerLink]="kpi.link" class="kpi-link" matTooltip="Consulter">
+            <mat-icon>arrow_forward</mat-icon>
+          </a>
+        </div>
+      </article>
+    </section>
+
+    <!-- ══════════════ ROW 2: Donut + Activity + Health ══════════════ -->
+    <section class="row2-grid">
+
+      <!-- ── Donut / Compte Panel ──────────────────────────────────── -->
+      <article class="panel panel-donut fade-in">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">État des comptes</h2>
+            <p class="panel-sub">Répartition en temps réel</p>
+          </div>
+          <span class="panel-icon green"><mat-icon>donut_small</mat-icon></span>
+        </div>
+
+        <div class="donut-wrap">
+          <svg viewBox="0 0 120 120" class="donut-svg" role="img" aria-label="Répartition comptes">
+            <!-- Track -->
+            <circle cx="60" cy="60" r="54" fill="none" stroke="var(--border-color)" stroke-width="13"/>
+            <!-- Segments -->
+            <circle
+              *ngFor="let seg of donutSegments()"
+              cx="60" cy="60" r="54"
+              fill="none"
+              [attr.stroke]="seg.color"
+              stroke-width="13"
+              [attr.stroke-dasharray]="seg.dasharray"
+              [attr.stroke-dashoffset]="seg.dashoffset"
+              stroke-linecap="butt"
+              class="donut-seg"
+              transform="rotate(-90 60 60)"/>
+            <!-- Center text -->
+            <text x="60" y="53" text-anchor="middle" class="donut-num">{{ S.totalStudents | number }}</text>
+            <text x="60" y="66" text-anchor="middle" class="donut-lbl">étudiants</text>
+          </svg>
+
+          <div class="donut-legend">
+            <div class="legend-row">
+              <span class="leg-dot" style="background:#10b981"></span>
+              <span class="leg-name">Actifs</span>
+              <strong>{{ S.activeStudents | number }}</strong>
+              <span class="leg-pct green-txt">{{ statusWidth('ACTIF') | number:'1.0-0' }}%</span>
+            </div>
+            <div class="legend-row">
+              <span class="leg-dot" style="background:#f59e0b"></span>
+              <span class="leg-name">En attente</span>
+              <strong>{{ S.pendingStudents | number }}</strong>
+              <span class="leg-pct amber-txt">{{ statusWidth('EN_ATTENTE') | number:'1.0-0' }}%</span>
+            </div>
+            <div class="legend-row">
+              <span class="leg-dot" style="background:#94a3b8"></span>
+              <span class="leg-name">Désactivés</span>
+              <strong>{{ S.disabledStudents | number }}</strong>
+              <span class="leg-pct slate-txt">{{ statusWidth('DESACTIVE') | number:'1.0-0' }}%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stacked bar -->
+        <div class="stacked-bar" aria-hidden="true">
+          <span class="sb-seg sb-active"   [style.flex]="statusWidth('ACTIF')"></span>
+          <span class="sb-seg sb-pending"  [style.flex]="statusWidth('EN_ATTENTE')"></span>
+          <span class="sb-seg sb-disabled" [style.flex]="statusWidth('DESACTIVE')"></span>
+        </div>
+
+        <a class="panel-cta" routerLink="/admin/users">
+          Examiner les comptes <mat-icon>arrow_forward</mat-icon>
+        </a>
+      </article>
+
+      <!-- ── Activity Panel ────────────────────────────────────────── -->
+      <article class="panel panel-activity fade-in" style="animation-delay:60ms">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Activité pédagogique</h2>
+            <p class="panel-sub">Ressources générées par l'IA</p>
+          </div>
+          <span class="panel-icon violet"><mat-icon>auto_awesome</mat-icon></span>
+        </div>
+
+        <div class="activity-hero-row">
+          <div>
+            <strong class="activity-big">{{ S.learningResources | number }}</strong>
+            <span class="activity-sub">ressources créées</span>
+          </div>
+          <!-- Mini sparkline -->
+          <div class="sparkline-wrap">
+            <svg viewBox="0 0 160 44" class="sparkline-svg" aria-hidden="true">
+              <defs>
+                <linearGradient id="area-grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stop-color="#7c3aed" stop-opacity=".25"/>
+                  <stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/>
+                </linearGradient>
+                <linearGradient id="line-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%"   stop-color="#7c3aed"/>
+                  <stop offset="100%" stop-color="#2563eb"/>
+                </linearGradient>
+              </defs>
+              <path [attr.d]="sparklinePath().areaPath" fill="url(#area-grad)"/>
+              <path [attr.d]="sparklinePath().path"     fill="none"
+                    stroke="url(#line-grad)" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" class="sparkline-line"/>
+            </svg>
+            <span class="sparkline-caption">7 derniers jours</span>
+          </div>
+        </div>
+
+        <!-- Resource bars -->
+        <div class="res-bars">
+          <div class="res-row">
+            <span class="res-icon ri-summary"><mat-icon>summarize</mat-icon></span>
+            <div class="res-detail">
+              <div class="res-label"><span>Synthèses</span><strong>{{ S.summaries | number }}</strong></div>
+              <div class="res-track"><div class="res-fill rf-blue" [style.width.%]="resourcePct(S.summaries)"></div></div>
+            </div>
+          </div>
+          <div class="res-row">
+            <span class="res-icon ri-quiz"><mat-icon>quiz</mat-icon></span>
+            <div class="res-detail">
+              <div class="res-label"><span>Quiz</span><strong>{{ S.quizzes | number }}</strong></div>
+              <div class="res-track"><div class="res-fill rf-violet" [style.width.%]="resourcePct(S.quizzes)"></div></div>
+            </div>
+          </div>
+          <div class="res-row">
+            <span class="res-icon ri-flash"><mat-icon>style</mat-icon></span>
+            <div class="res-detail">
+              <div class="res-label"><span>Flashcards</span><strong>{{ S.flashcardSets | number }}</strong></div>
+              <div class="res-track"><div class="res-fill rf-orange" [style.width.%]="resourcePct(S.flashcardSets)"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Engagement -->
+        <div class="engage-row">
+          <div class="engage-label">
+            <mat-icon>insights</mat-icon>
+            <span>Taux d'engagement estimé</span>
+          </div>
+          <div class="engage-right">
+            <div class="engage-bar-track">
+              <div class="engage-bar-fill" [style.width.%]="engagementRate"></div>
+            </div>
+            <strong class="engage-val">{{ engagementRate }}%</strong>
+          </div>
+        </div>
+
+        <!-- Chips -->
+        <div class="chip-row">
+          <span class="chip"><mat-icon>task_alt</mat-icon>{{ S.completedActivities | number }} terminées</span>
+          <span class="chip"><mat-icon>description</mat-icon>{{ S.documents | number }} supports</span>
+          <span class="chip"><mat-icon>menu_book</mat-icon>{{ S.courses | number }} cours</span>
+        </div>
+      </article>
+
+      <!-- ── Activity Feed ─────────────────────────────────────────── -->
+      <article class="panel panel-feed fade-in" style="animation-delay:120ms">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Activité récente</h2>
+            <p class="panel-sub">Dernières actions des étudiants</p>
+          </div>
+          <span class="panel-icon orange"><mat-icon>timeline</mat-icon></span>
+        </div>
+
+        <div class="feed-list">
+          <div *ngIf="activityFeed().length === 0" class="feed-empty">
+            <mat-icon>inbox</mat-icon>
+            <span>Aucune activité récente</span>
+          </div>
+          <div *ngFor="let item of activityFeed(); let last = last"
+               class="feed-item"
+               [class.last]="last">
+            <div class="feed-avatar" [class]="'feed-av-' + item.tone">
+              {{ studentInitials(item.student) }}
+            </div>
+            <div class="feed-body">
+              <span class="feed-name">{{ item.student.firstName }} {{ item.student.lastName }}</span>
+              <span class="feed-action">{{ item.action }}</span>
+            </div>
+            <div class="feed-right">
+              <span class="feed-icon" [class]="'fi-' + item.tone">
+                <mat-icon>{{ item.icon }}</mat-icon>
+              </span>
+              <span class="feed-ago">{{ item.ago }}</span>
+            </div>
+          </div>
+        </div>
+
+        <a class="panel-cta" routerLink="/admin/users">
+          Voir tous les comptes <mat-icon>arrow_forward</mat-icon>
+        </a>
+      </article>
+
+    </section>
+
+    <!-- ══════════════ ROW 3: Bar Chart + Table ══════════════ -->
+    <section class="row3-grid">
+
+      <!-- ── Bar Chart ─────────────────────────────────────────────── -->
+      <article class="panel panel-chart fade-in" style="animation-delay:100ms">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Tendance mensuelle</h2>
+            <p class="panel-sub">Ressources générées sur 6 mois</p>
+          </div>
+          <span class="panel-icon blue"><mat-icon>bar_chart</mat-icon></span>
+        </div>
+
+        <div class="bar-chart-area">
+          <svg viewBox="0 0 320 150" class="bar-chart-svg" aria-label="Graphique ressources mensuelles">
+            <defs>
+              <linearGradient id="bar-grad-active" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stop-color="#7c3aed"/>
+                <stop offset="100%" stop-color="#2563eb"/>
+              </linearGradient>
+              <linearGradient id="bar-grad-normal" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stop-color="var(--border-color)"/>
+                <stop offset="100%" stop-color="var(--sidebar-hover)"/>
+              </linearGradient>
+            </defs>
+            <!-- Grid lines -->
+            <line *ngFor="let y of [20,50,80,110,140]"
+                  x1="20" [attr.y1]="y" x2="310" [attr.y2]="y"
+                  stroke="var(--border-color)" stroke-width="1" stroke-dasharray="4 4"/>
+            <!-- Bars -->
+            <g *ngFor="let bar of barChartPoints(); let i = index"
+               class="bar-group"
+               (mouseenter)="setHoveredBar(i)"
+               (mouseleave)="setHoveredBar(null)">
+              <!-- Bar rect -->
+              <rect
+                [attr.x]="bar.x + 20"
+                [attr.y]="140 - barHeight(bar)"
+                width="28"
+                [attr.height]="barHeight(bar)"
+                rx="5"
+                [attr.fill]="hoveredBar() === i ? 'url(#bar-grad-active)' : 'url(#bar-grad-normal)'"
+                class="bar-rect"/>
+              <!-- Value label on hover -->
+              <text
+                *ngIf="hoveredBar() === i"
+                [attr.x]="bar.x + 34"
+                [attr.y]="140 - barHeight(bar) - 6"
+                text-anchor="middle"
+                class="bar-val-label">
+                {{ fmt(bar.value) }}
+              </text>
+              <!-- Month label -->
+              <text [attr.x]="bar.x + 34" y="148" text-anchor="middle" class="bar-month-label">
+                {{ bar.label }}
+              </text>
+            </g>
+          </svg>
+        </div>
+
+        <div class="chart-legend-row">
+          <span class="chart-leg-item">
+            <span class="chart-leg-dot gradient-dot"></span>Mois sélectionné
+          </span>
+          <span class="chart-leg-item">
+            <span class="chart-leg-dot neutral-dot"></span>Autres mois
+          </span>
+        </div>
+      </article>
+
+      <!-- ── Quick Stats Column ────────────────────────────────────── -->
+      <div class="stats-column">
+        <article class="panel qa-stat-panel fade-in" style="animation-delay:140ms">
+          <span class="qa-icon blue"><mat-icon>bar_chart</mat-icon></span>
+          <div class="qa-content">
+            <span class="qa-label">Taux d'activation</span>
+            <strong class="qa-big gradient-text">{{ statusWidth('ACTIF') | number:'1.0-0' }}%</strong>
+            <span class="qa-sub">des comptes sont actifs</span>
+          </div>
+        </article>
+
+        <article class="panel qa-stat-panel fade-in" style="animation-delay:160ms">
+          <span class="qa-icon orange"><mat-icon>pending_actions</mat-icon></span>
+          <div class="qa-content">
+            <span class="qa-label">Comptes en attente</span>
+            <strong class="qa-big gradient-text">{{ S.pendingStudents | number }}</strong>
+            <span class="qa-sub">à valider manuellement</span>
+          </div>
+          <a routerLink="/admin/users" class="qa-btn">
+            <mat-icon>arrow_forward</mat-icon>
+          </a>
+        </article>
+
+        <article class="panel qa-stat-panel fade-in" style="animation-delay:180ms">
+          <span class="qa-icon green"><mat-icon>insights</mat-icon></span>
+          <div class="qa-content">
+            <span class="qa-label">Santé plateforme</span>
+            <strong class="qa-big gradient-text">{{ platformHealth }}%</strong>
+            <div class="health-bar-track">
+              <div class="health-bar-fill"
+                   [style.width.%]="platformHealth"
+                   [class.hb-good]="platformHealth >= 70"
+                   [class.hb-warn]="platformHealth < 70 && platformHealth >= 40"
+                   [class.hb-bad]="platformHealth < 40">
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel qa-stat-panel fade-in" style="animation-delay:200ms">
+          <span class="qa-icon violet"><mat-icon>auto_awesome</mat-icon></span>
+          <div class="qa-content">
+            <span class="qa-label">Moy. ressources / étudiant</span>
+            <strong class="qa-big gradient-text">
+              {{ S.totalStudents ? (S.learningResources / S.totalStudents | number:'1.0-1') : '0' }}
+            </strong>
+            <span class="qa-sub">ressources IA par étudiant</span>
+          </div>
+        </article>
+      </div>
+
+    </section>
+
+    <!-- ══════════════ RECENT STUDENTS TABLE ══════════════ -->
+    <section class="panel recent-panel fade-in" style="animation-delay:200ms">
+
+      <div class="recent-header">
+        <div>
+          <h2 class="panel-title">Dernières inscriptions</h2>
+          <p class="panel-sub">Les 8 comptes les plus récemment créés</p>
+        </div>
+        <div class="recent-controls">
+          <label class="search-box">
+            <mat-icon>search</mat-icon>
+            <input #searchInput type="search" placeholder="Rechercher par nom ou email…"
+                   aria-label="Rechercher dans les inscriptions"
+                   (input)="setSearchTerm(searchInput.value)">
+          </label>
+          <a class="btn-action btn-ghost" routerLink="/admin/users">
+            Voir tout <mat-icon>arrow_forward</mat-icon>
+          </a>
+        </div>
+      </div>
+
+      <!-- Filter pills -->
+      <div class="filter-pills" aria-label="Filtres par statut">
+        <button type="button" [class.active]="statusFilter()==='ALL'"        (click)="setStatusFilter('ALL')">
+          Tous <span class="pill-count">{{ recentStatusCount('ALL') }}</span>
+        </button>
+        <button type="button" [class.active]="statusFilter()==='ACTIF'"      (click)="setStatusFilter('ACTIF')">
+          <span class="dot green"></span>Actifs <span class="pill-count">{{ recentStatusCount('ACTIF') }}</span>
+        </button>
+        <button type="button" [class.active]="statusFilter()==='EN_ATTENTE'" (click)="setStatusFilter('EN_ATTENTE')">
+          <span class="dot amber"></span>En attente <span class="pill-count">{{ recentStatusCount('EN_ATTENTE') }}</span>
+        </button>
+        <button type="button" [class.active]="statusFilter()==='DESACTIVE'"  (click)="setStatusFilter('DESACTIVE')">
+          <span class="dot slate"></span>Désactivés <span class="pill-count">{{ recentStatusCount('DESACTIVE') }}</span>
+        </button>
+      </div>
+
+      <!-- Empty states -->
+      <div *ngIf="recentStudents().length === 0" class="empty-state">
+        <span class="empty-icon-wrap"><mat-icon>person_add_alt</mat-icon></span>
+        <strong>Aucune inscription pour le moment</strong>
+        <p>Les nouveaux étudiants apparaîtront ici dès leur création.</p>
+      </div>
+
+      <div *ngIf="recentStudents().length > 0 && filteredStudents().length === 0" class="empty-state compact">
+        <mat-icon>search_off</mat-icon>
+        <strong>Aucun résultat</strong>
+        <p>Essayez un autre terme ou un autre filtre.</p>
+      </div>
+
+      <!-- Table -->
+      <div *ngIf="filteredStudents().length > 0" class="table-scroll">
+        <table class="students-table">
+          <thead>
+            <tr>
+              <th>Étudiant</th>
+              <th>Adresse e-mail</th>
+              <th>Inscription</th>
+              <th>Statut</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let s of filteredStudents(); let i = index"
+                class="table-row"
+                [style.animation-delay]="(i * 35) + 'ms'">
+              <td>
+                <div class="student-cell">
+                  <span class="student-avatar" [class]="'av-' + avatarColor(s)">{{ studentInitials(s) }}</span>
+                  <div>
+                    <strong class="student-name">{{ s.firstName }} {{ s.lastName }}</strong>
+                  </div>
+                </div>
+              </td>
+              <td class="email-cell">{{ s.email }}</td>
+              <td class="date-cell">
+                <mat-icon class="date-icon">event</mat-icon>
+                {{ s.createdAt | date:'d MMM yyyy' }}
+              </td>
+              <td>
+                <span class="status-badge" [ngClass]="s.status">
+                  <i></i>{{ statusLabel(s.status) }}
+                </span>
+              </td>
+              <td class="action-cell">
+                <a [routerLink]="['/admin/users']"
+                   class="row-btn"
+                   [attr.aria-label]="'Gérer ' + s.firstName">
+                  <mat-icon>chevron_right</mat-icon>
+                </a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Footer -->
+      <footer class="table-foot" *ngIf="recentStudents().length > 0">
+        <span class="foot-count">
+          <strong>{{ filteredStudents().length }}</strong> / {{ recentStudents().length }} inscriptions affichées
+        </span>
+        <a routerLink="/admin/users" class="foot-link">
+          Gestion complète des comptes <mat-icon>arrow_forward</mat-icon>
+        </a>
+      </footer>
+    </section>
+
+  </ng-container>
+</section>

@@ -1,0 +1,345 @@
+<section class="learning-workspace">
+  <header class="workspace-header">
+    <div class="header-info">
+      <span class="header-pill">ESPACE ÉTUDIANT</span>
+      <h1 class="workspace-title">Cours & révisions IA</h1>
+      <p class="workspace-sub">Centralisez vos supports, générez des synthèses, quiz et échangez avec le tuteur IA.</p>
+    </div>
+    <div class="workspace-actions">
+      <button mat-button color="primary" (click)="loadWorkspace()" [disabled]="isLoading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Actualiser</span>
+      </button>
+    </div>
+  </header>
+
+  <p *ngIf="errorMessage()" class="status-message error-message" role="alert">{{ errorMessage() }}</p>
+
+  <div *ngIf="isLoading()" class="loading-zone">
+    <app-skeleton-loader type="card" [count]="6"></app-skeleton-loader>
+  </div>
+
+  <div *ngIf="!isLoading()" class="workspace-body">
+
+    <!-- Course Sidebar -->
+    <aside class="course-sidebar panel">
+      <div class="sidebar-header">
+        <h2>Mes cours</h2>
+        <button mat-button color="primary" class="add-course-btn" (click)="createCourseForm.reset(); createCourseForm.markAsUntouched()">
+          <mat-icon>add</mat-icon>
+          Nouveau cours
+        </button>
+      </div>
+
+      <div class="course-list">
+        <button
+          *ngFor="let course of courses()"
+          type="button"
+          class="course-item"
+          [class.active]="course.id === selectedCourseId()"
+          (click)="selectCourse(course.id)">
+          <div class="course-item-info">
+            <span class="course-item-title">{{ course.title }}</span>
+            <span class="course-item-meta">{{ course.subject }} · {{ course.files.length }} doc(s)</span>
+          </div>
+          <button mat-icon-button class="delete-course-btn" (click)="deleteCourse(course)">
+            <mat-icon color="warn">delete_outline</mat-icon>
+          </button>
+        </button>
+      </div>
+
+      <form [formGroup]="createCourseForm" (ngSubmit)="createCourse()" class="create-form">
+        <h3>Créer un cours</h3>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Titre du cours</mat-label>
+          <input matInput formControlName="title" placeholder="Ex. Biologie cellulaire">
+          <mat-error *ngIf="createCourseForm.get('title')?.hasError('required')">Le titre est requis</mat-error>
+          <mat-error *ngIf="createCourseForm.get('title')?.hasError('maxlength')">Maximum 255 caractères</mat-error>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Matière</mat-label>
+          <input matInput formControlName="subject" placeholder="Ex. Biologie">
+          <mat-error *ngIf="createCourseForm.get('subject')?.hasError('required')">La matière est requise</mat-error>
+          <mat-error *ngIf="createCourseForm.get('subject')?.hasError('maxlength')">Maximum 100 caractères</mat-error>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Description</mat-label>
+          <textarea matInput formControlName="description" rows="2" placeholder="Description optionnelle"></textarea>
+        </mat-form-field>
+        <button mat-flat-button color="primary" type="submit" [disabled]="isSavingCourse() || createCourseForm.invalid">
+          {{ isSavingCourse() ? 'Enregistrement…' : 'Créer le cours' }}
+        </button>
+      </form>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="workspace-main">
+      <ng-container *ngIf="selectedCourse() as course; else noCourseTemplate">
+
+        <!-- Course Header -->
+        <section class="course-header-card panel">
+          <div class="course-header-content">
+            <div>
+              <span class="course-subject-badge">{{ course.subject }}</span>
+              <h2>{{ course.title }}</h2>
+              <p *ngIf="course.description" class="course-description">{{ course.description }}</p>
+            </div>
+            <button mat-button color="warn" class="delete-course-header-btn" (click)="deleteCourse(course)">
+              <mat-icon>delete_outline</mat-icon>
+              Supprimer le cours
+            </button>
+          </div>
+
+          <!-- Documents -->
+          <div class="documents-section">
+            <div class="documents-header">
+              <div>
+                <h3>Documents de cours</h3>
+                <p>PDF et TXT, jusqu'à 10 Mo par fichier.</p>
+              </div>
+              <label class="upload-btn" [class.disabled]="isUploading()">
+                <mat-icon>upload_file</mat-icon>
+                <span>{{ isUploading() ? 'Analyse en cours…' : 'Importer un document' }}</span>
+                <input type="file" accept=".pdf,.txt,application/pdf,text/plain" [disabled]="isUploading()" (change)="uploadDocument($event)" class="file-input">
+              </label>
+            </div>
+
+            <div *ngIf="course.files.length === 0" class="empty-docs">
+              <mat-icon>description_outlined</mat-icon>
+              <p>Importez un PDF ou fichier texte pour commencer à réviser.</p>
+            </div>
+
+            <ul *ngIf="course.files.length > 0" class="documents-list">
+              <li *ngFor="let file of course.files" class="document-item">
+                <mat-icon class="doc-icon">{{ file.contentType === 'application/pdf' ? 'picture_as_pdf' : 'description' }}</mat-icon>
+                <span class="doc-name">{{ file.filename }}</span>
+                <span class="doc-size">{{ formatSize(file.sizeBytes) }}</span>
+              <button mat-icon-button class="summarize-doc-btn"
+                      [disabled]="isGenerating()"
+                      [attr.aria-label]="'Synthétiser ' + file.filename"
+                      (click)="summarizeDocument(file.id)">
+                <mat-icon>summarize</mat-icon>
+              </button>
+              <button mat-icon-button class="delete-doc-btn" (click)="deleteDocument(file.id)">
+                <mat-icon>close</mat-icon>
+              </button>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- AI Tools -->
+        <section class="ai-tools-section panel">
+          <h3>Outils IA</h3>
+          <div class="tools-grid">
+            <button
+              type="button"
+              class="tool-card primary"
+              [disabled]="isGenerating() || course.files.length === 0"
+              (click)="generateSummary()">
+              <mat-icon>summarize</mat-icon>
+              <div class="tool-info">
+                <strong>Synthèse IA</strong>
+                <span>Résumé automatique de vos documents</span>
+              </div>
+              <mat-icon>arrow_forward</mat-icon>
+            </button>
+            <button
+              type="button"
+              class="tool-card"
+              [disabled]="isGenerating() || course.files.length === 0"
+              (click)="generateQuiz()">
+              <mat-icon>quiz</mat-icon>
+              <div class="tool-info">
+                <strong>Quiz généré</strong>
+                <span>Questions avec correction et score</span>
+              </div>
+              <mat-icon>arrow_forward</mat-icon>
+            </button>
+            <button
+              type="button"
+              class="tool-card"
+              [disabled]="isGenerating() || course.files.length === 0"
+              (click)="generateFlashcards()">
+              <mat-icon>style</mat-icon>
+              <div class="tool-info">
+                <strong>Cartes mémoire</strong>
+                <span>Révision active avec suivi</span>
+              </div>
+              <mat-icon>arrow_forward</mat-icon>
+            </button>
+          </div>
+          <div *ngIf="isGenerating()" class="generating-banner">
+            <mat-icon>hourglass_empty</mat-icon>
+            <span>L'IA prépare votre activité…</span>
+          </div>
+        </section>
+
+        <!-- Tutor Chat -->
+        <section class="tutor-section panel">
+          <div class="tutor-header">
+            <div>
+              <h3>Tuteur StudyAI</h3>
+              <p>Posez vos questions sur les documents de ce cours.</p>
+            </div>
+            <mat-icon>psychology</mat-icon>
+          </div>
+          <div class="conversation" aria-live="polite">
+            <article *ngFor="let message of messages()" class="chat-bubble" [class.tutor]="message.role === 'tutor'">
+              <div class="bubble-avatar">
+                {{ message.role === 'tutor' ? 'AI' : 'TU' }}
+              </div>
+              <div class="bubble-content">
+                <strong>{{ message.role === 'tutor' ? 'Tuteur StudyAI' : 'Vous' }}</strong>
+                <p>{{ message.content }}</p>
+              </div>
+            </article>
+            <p *ngIf="messages().length === 0" class="empty-chat">Aucune conversation pour l'instant. Posez votre première question.</p>
+          </div>
+          <form class="question-form" (ngSubmit)="sendQuestion()">
+            <div class="form-row">
+              <textarea
+                name="tutorQuestion"
+                [(ngModel)]="tutorQuestion"
+                [ngModelOptions]="{ standalone: true }"
+                placeholder="Votre question sur ce cours…"
+                maxlength="2000"
+                rows="1"
+                [disabled]="isSendingQuestion() || course.files.length === 0"></textarea>
+              <button
+                mat-flat-button
+                color="primary"
+                type="submit"
+                [disabled]="isSendingQuestion() || !tutorQuestion.trim() || course.files.length === 0">
+                {{ isSendingQuestion() ? 'Envoi…' : 'Poser' }}
+              </button>
+            </div>
+          </form>
+        </section>
+
+      </ng-container>
+
+      <ng-template #noCourseTemplate>
+        <section class="empty-workspace panel">
+          <mat-icon>library_add</mat-icon>
+          <h2>Commencez par créer un cours</h2>
+          <p>Ajoutez un cours et importez ses documents pour accéder au tuteur IA, aux synthèses, quiz et flashcards.</p>
+        </section>
+      </ng-template>
+
+    </main>
+
+    <!-- Resources Panel -->
+    <aside class="resources-sidebar panel">
+      <div class="sidebar-header">
+        <h2>Mes révisions</h2>
+      </div>
+
+      <div class="resource-list">
+        <button
+          *ngFor="let resource of resources()"
+          type="button"
+          class="resource-item"
+          [class.active]="resource.id === activeResource()?.id"
+          (click)="openResource(resource)">
+          <div class="resource-item-info">
+            <span class="resource-item-kind">{{ resource.kind === 'SUMMARY' ? 'Synthèse' : resource.kind === 'QUIZ' ? 'Quiz' : 'Cartes mémoire' }}</span>
+            <span class="resource-item-title">{{ resource.title }}</span>
+          </div>
+          <span class="resource-item-date">{{ resource.createdAt | date:'shortDate' }}</span>
+        </button>
+      </div>
+
+      <p *ngIf="resources().length === 0" class="empty-resources">Vos synthèses et activités apparaîtront ici.</p>
+
+      <!-- Active Resource Detail -->
+      <section *ngIf="activeResource() as resource" class="resource-detail">
+        <div class="resource-detail-header">
+          <h3>{{ resource.title }}</h3>
+          <div>
+            <button *ngIf="resource.kind === 'SUMMARY'"
+                    mat-icon-button color="primary"
+                    [attr.aria-label]="'Exporter la synthèse en PDF'"
+                    (click)="exportSummaryPdf(resource)">
+              <mat-icon>picture_as_pdf</mat-icon>
+            </button>
+            <button mat-icon-button color="primary" (click)="activeResource.set(null)">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Summary -->
+        <div *ngIf="resource.kind === 'SUMMARY'" class="summary-view">
+          <div class="summary-content">{{ resource.content }}</div>
+        </div>
+
+        <!-- Quiz -->
+        <div *ngIf="resource.kind === 'QUIZ'" class="quiz-view">
+          <div *ngFor="let question of quizQuestions(resource); let i = index" class="quiz-item">
+            <div class="quiz-question-number">{{ i + 1 }}</div>
+            <div class="quiz-question-text">{{ question.question }}</div>
+            <div class="quiz-options">
+              <label *ngFor="let option of question.options; let j = index" class="quiz-option">
+                <input
+                  type="radio"
+                  [name]="'q-' + resource.id + '-' + i"
+                  [checked]="selectedAnswers()[i] === j"
+                  (change)="chooseAnswer(i, j)">
+                <span class="option-letter">{{ optionLetter(j) }}</span>
+                {{ option }}
+              </label>
+            </div>
+          </div>
+          <div *ngIf="attemptResult()" class="quiz-feedback">
+            <p>{{ selectedAnswers()[0] !== null ? 'Quiz corrigé' : '' }}</p>
+          </div>
+          <button mat-flat-button color="primary" type="button" (click)="submitQuiz()" [disabled]="isSubmitting() || hasUnansweredQuiz()">
+            {{ isSubmitting() ? 'Correction…' : 'Valider mes réponses' }}
+          </button>
+          <p *ngIf="attemptResult()" class="attempt-result">
+            Résultat : {{ attemptResult()?.score }} / {{ attemptResult()?.total }}
+          </p>
+        </div>
+
+        <!-- Flashcards -->
+        <div *ngIf="resource.kind === 'FLASHCARDS' && flashcards(resource).length > 0" class="flashcards-view">
+          <div class="flashcard-counter">
+            Carte {{ cardIndex() + 1 }} sur {{ flashcards(resource).length }}
+          </div>
+          <div class="flashcard-wrapper">
+            <div class="flashcard" [class.flipped]="isCardFlipped()" (click)="flipFlashcard()">
+              <div class="flashcard-face front">
+                {{ flashcards(resource)[cardIndex()].front }}
+              </div>
+              <div class="flashcard-face back">
+                {{ flashcards(resource)[cardIndex()].back }}
+              </div>
+            </div>
+          </div>
+          <div class="flashcard-hint">
+            {{ isCardFlipped() ? 'Réponse — cliquer pour retourner' : 'Question — cliquer pour révéler la réponse' }}
+          </div>
+          <div class="flashcard-nav">
+            <button mat-button type="button" (click)="moveFlashcard(-1)" [disabled]="cardIndex() === 0">
+              <mat-icon>chevron_left</mat-icon>
+              Précédente
+            </button>
+            <button mat-button type="button" (click)="moveFlashcard(1)" [disabled]="cardIndex() + 1 === flashcards(resource).length">
+              Suivante
+              <mat-icon>chevron_right</mat-icon>
+            </button>
+          </div>
+          <p class="flashcard-progress">{{ reviewedCards().length }} carte(s) révisée(s)</p>
+          <button mat-flat-button color="primary" type="button" (click)="submitFlashcards()" [disabled]="isSubmitting()">
+            Enregistrer ma révision
+          </button>
+        </div>
+
+        <p *ngIf="attemptResult()" class="attempt-result">
+          Résultat enregistré : {{ attemptResult()?.score }} / {{ attemptResult()?.total }}
+        </p>
+      </section>
+    </aside>
+  </div>
+</section>

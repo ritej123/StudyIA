@@ -1,0 +1,97 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: studyai-postgres
+    environment:
+      POSTGRES_DB: studyai
+      POSTGRES_USER: studyai
+      POSTGRES_PASSWORD: ritej
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - studyai-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-studyai} -d ${POSTGRES_DB:-studyai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: studyai-backend
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: studyai
+      POSTGRES_USER: studyai
+      POSTGRES_PASSWORD: ritej
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/studyai
+      SPRING_DATASOURCE_USERNAME: studyai
+      SPRING_DATASOURCE_PASSWORD: ritej
+      JWT_SECRET: uwM45UKWBsSIsGO6paZiXbEVgaqaIuGVOk9b6z03vFo=
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-900000}
+      REFRESH_TOKEN_EXPIRATION_DAYS: ${REFRESH_TOKEN_EXPIRATION_DAYS:-7}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:4200}
+      UPLOAD_DIR: /app/uploads
+      AI_SERVICE_URL: http://ai-service:8000
+    ports:
+      - "8080:8080"
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - studyai-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/swagger-ui.html || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: studyai-ai-service
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-flash}
+      GEMINI_FALLBACK_MODEL: ${GEMINI_FALLBACK_MODEL:-gemini-flash-lite-latest}
+    ports:
+      - "8000:8000"
+    networks:
+      - studyai-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: studyai-frontend
+    ports:
+      - "80:80"
+    networks:
+      - studyai-network
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  uploads_data:
+
+networks:
+  studyai-network:
+    driver: bridge

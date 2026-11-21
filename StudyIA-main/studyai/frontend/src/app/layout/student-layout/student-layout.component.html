@@ -1,0 +1,97 @@
+<div class="layout-wrapper" [class.sidebar-collapsed]="isSidebarCollapsed()">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <mat-icon>school</mat-icon>
+        </div>
+        <span class="brand-name" *ngIf="!isSidebarCollapsed()">Study<span class="gradient-text">AI</span></span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-title" *ngIf="!isSidebarCollapsed()">MENU PRINCIPAL</div>
+
+      <a routerLink="/student/dashboard" routerLinkActive="active" class="nav-item" [matTooltip]="isSidebarCollapsed() ? 'Tableau de bord' : ''" matTooltipPosition="right">
+        <mat-icon>dashboard</mat-icon>
+        <span class="nav-label" *ngIf="!isSidebarCollapsed()">Tableau de bord</span>
+      </a>
+
+      <a routerLink="/student/profile" routerLinkActive="active" class="nav-item" [matTooltip]="isSidebarCollapsed() ? 'Mon Profil' : ''" matTooltipPosition="right">
+        <mat-icon>person</mat-icon>
+        <span class="nav-label" *ngIf="!isSidebarCollapsed()">Mon Profil</span>
+      </a>
+
+      <div class="nav-section-title" *ngIf="!isSidebarCollapsed()">APPRENTISSAGE</div>
+
+      <a routerLink="/student/learning" routerLinkActive="active" class="nav-item" [matTooltip]="isSidebarCollapsed() ? 'Cours et révisions' : ''" matTooltipPosition="right">
+        <mat-icon>menu_book</mat-icon>
+        <span class="nav-label" *ngIf="!isSidebarCollapsed()">Cours & révisions IA</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer" *ngIf="!isSidebarCollapsed()">
+      <div class="user-info-card">
+        <div class="user-avatar-mini">
+          <mat-icon>account_circle</mat-icon>
+        </div>
+        <div class="user-details">
+          <span class="user-name">{{ authService.userFullName() || 'Étudiant' }}</span>
+          <span class="user-role-badge">Étudiant</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <div class="main-wrapper">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <button mat-icon-button (click)="toggleSidebar()" class="menu-btn" aria-label="Basculer le menu">
+          <mat-icon>{{ isSidebarCollapsed() ? 'menu' : 'menu_open' }}</mat-icon>
+        </button>
+        <span class="workspace-badge">Espace Étudiant</span>
+      </div>
+
+      <div class="header-right">
+        <!-- Toggle Dark/Light Mode -->
+        <button mat-icon-button (click)="themeService.toggleTheme()" [matTooltip]="themeService.isDarkMode() ? 'Passer au mode clair' : 'Passer au mode sombre'">
+          <mat-icon>{{ themeService.isDarkMode() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+        </button>
+
+        <!-- User Profile Menu -->
+        <button mat-button [matMenuTriggerFor]="userMenu" class="user-menu-btn">
+          <div class="avatar-circle">
+            {{ (authService.currentUser()?.firstName?.charAt(0) || 'E').toUpperCase() }}
+          </div>
+          <span class="header-user-name">{{ authService.currentUser()?.firstName }}</span>
+          <mat-icon>expand_more</mat-icon>
+        </button>
+
+        <mat-menu #userMenu="matMenu" xPosition="before" class="app-user-menu">
+          <div class="menu-header">
+            <strong>{{ authService.userFullName() }}</strong>
+            <small>{{ authService.currentUser()?.email }}</small>
+          </div>
+          <mat-divider></mat-divider>
+          <a mat-menu-item routerLink="/student/profile">
+            <mat-icon>account_circle</mat-icon>
+            <span>Mon Profil</span>
+          </a>
+          <mat-divider></mat-divider>
+          <button mat-menu-item (click)="logout()" class="logout-menu-item">
+            <mat-icon color="warn">logout</mat-icon>
+            <span class="logout-text">Déconnexion</span>
+          </button>
+        </mat-menu>
+      </div>
+    </header>
+
+    <!-- Router Content -->
+    <main class="page-content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>

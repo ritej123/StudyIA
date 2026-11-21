@@ -1,0 +1,177 @@
+<section class="student-dashboard">
+  <!-- Welcome Banner -->
+  <header class="welcome-banner">
+    <div class="banner-text">
+      <span class="banner-pill">Bienvenue sur StudyAI</span>
+      <h1 class="banner-title">
+        Bonjour, <span class="highlight">{{ authService.currentUser()?.firstName || 'Étudiant' }}</span> !
+      </h1>
+      <p class="banner-sub">
+        Reprenez vos cours, révisez avec l'IA et suivez votre progression en temps réel.
+      </p>
+    </div>
+    <div class="banner-avatar">
+      <div class="avatar-ring">
+        <div class="avatar-fill"></div>
+        <span class="avatar-letter">
+          {{ (authService.currentUser()?.firstName?.charAt(0) || 'E').toUpperCase() }}
+        </span>
+      </div>
+      <span class="avatar-status">Étudiant</span>
+    </div>
+  </header>
+
+  <!-- Loading -->
+  <div *ngIf="isLoading()" class="loader-zone">
+    <app-skeleton-loader type="card" [count]="6"></app-skeleton-loader>
+  </div>
+
+  <!-- Error -->
+  <div *ngIf="!isLoading() && errorMessage()" class="error-banner" role="alert">
+    <mat-icon>error_outline</mat-icon>
+    <span>{{ errorMessage() }}</span>
+    <button mat-button color="primary" (click)="refresh()">Réessayer</button>
+  </div>
+
+  <!-- Content -->
+  <main *ngIf="!isLoading() && !errorMessage()" class="dashboard-content">
+
+    <!-- Key Stats -->
+    <section class="stats-section">
+      <div class="section-header">
+        <h2 class="section-title">Vos indicateurs</h2>
+        <p class="section-sub">Un aperçu de votre activité d'apprentissage.</p>
+      </div>
+      <div class="stats-grid">
+        <article
+          *ngFor="let stat of stats()"
+          class="stat-card"
+          [routerLink]="stat.link"
+          [style.--accent]="stat.color">
+          <div class="stat-icon">
+            <mat-icon [style.color]="stat.color">{{ stat.icon }}</mat-icon>
+          </div>
+          <div class="stat-body">
+            <strong class="stat-value">{{ stat.value }}</strong>
+            <span class="stat-label">{{ stat.label }}</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Progress & Quick Actions -->
+    <div class="two-columns">
+      <!-- Progress Card -->
+      <section class="card progress-card">
+        <div class="card-header">
+          <mat-icon>trending_up</mat-icon>
+          <h3>Progression globale</h3>
+        </div>
+        <div class="progress-content">
+          <app-circular-progress
+            [value]="progressPct()"
+            [max]="100"
+            [size]="130"
+            label="Activités complétées">
+          </app-circular-progress>
+          <div class="progress-detail">
+            <p class="progress-text">
+              {{ totalActivities() }} activité(s) réalisée(s) sur vos ressources.
+            </p>
+            <div class="progress-breakdown">
+              <span class="break-item" *ngIf="summaryCount() > 0">
+                <mat-icon style="color: var(--success)">summarize</mat-icon>
+                {{ summaryCount() }} synthèse
+              </span>
+              <span class="break-item" *ngIf="quizCount() > 0">
+                <mat-icon style="color: var(--warning)">quiz</mat-icon>
+                {{ quizCount() }} quiz
+              </span>
+              <span class="break-item" *ngIf="flashcardCount() > 0">
+                <mat-icon style="color: var(--info)">style</mat-icon>
+                {{ flashcardCount() }} flashcards
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Quick Actions -->
+      <section class="card actions-card">
+        <div class="card-header">
+          <mat-icon>rocket_launch</mat-icon>
+          <h3>Actions rapides</h3>
+        </div>
+        <div class="actions-grid">
+          <button
+            mat-button
+            class="action-btn primary"
+            routerLink="/student/learning"
+            [disabled]="courses().length === 0">
+            <mat-icon>auto_stories</mat-icon>
+            <span>Reprendre mes cours</span>
+          </button>
+          <button
+            mat-button
+            class="action-btn"
+            routerLink="/student/learning"
+            [disabled]="courses().length === 0">
+            <mat-icon>summarize</mat-icon>
+            <span>Générer une synthèse</span>
+          </button>
+          <button
+            mat-button
+            class="action-btn"
+            routerLink="/student/learning"
+            [disabled]="courses().length === 0">
+            <mat-icon>quiz</mat-icon>
+            <span>Créer un quiz</span>
+          </button>
+          <button
+            mat-button
+            class="action-btn"
+            routerLink="/student/profile">
+            <mat-icon>person</mat-icon>
+            <span>Mon profil</span>
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Recent Resources -->
+    <section class="resources-section">
+      <div class="section-header">
+        <h2 class="section-title">Ressources récentes</h2>
+        <a mat-button color="primary" routerLink="/student/learning">
+          Voir toutes <mat-icon>arrow_forward</mat-icon>
+        </a>
+      </div>
+
+      <app-empty-state
+        *ngIf="recentResources().length === 0"
+        title="Aucune ressource pour l'instant"
+        message="Générez votre première synthèse, quiz ou flashcards depuis un cours."
+        icon="auto_stories"
+        buttonLabel="Créer un cours"
+        (buttonClick)="router.navigateByUrl('/student/learning')">
+      </app-empty-state>
+
+      <div class="resources-grid" *ngIf="recentResources().length > 0">
+        <article *ngFor="let resource of recentResources()" class="resource-card">
+          <div class="resource-kind-chip" [class]="resource.kind.toLowerCase()">
+            <mat-icon>{{ resource.kind === 'SUMMARY' ? 'summarize' : resource.kind === 'QUIZ' ? 'quiz' : 'style' }}</mat-icon>
+            <span>{{ resource.kind === 'SUMMARY' ? 'Synthèse' : resource.kind === 'QUIZ' ? 'Quiz' : 'Flashcards' }}</span>
+          </div>
+          <h4 class="resource-title">{{ resource.title }}</h4>
+          <div class="resource-footer">
+            <span class="resource-date">{{ resource.createdAt | date:'shortDate' }}</span>
+            <button mat-icon-button color="primary" routerLink="/student/learning">
+              <mat-icon>open_in_new</mat-icon>
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+  </main>
+</section>
